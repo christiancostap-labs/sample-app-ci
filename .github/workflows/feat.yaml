@@ -7,9 +7,24 @@ on:
 permissions:
   contents: read
   packages: write
+  pull-requests: write
+
 
 jobs:
+
+  load-config:
+    runs-on: ubuntu-latest
+    outputs:
+      sonar_project: ${{ steps.config.outputs.sonar_project }}
+      sonar_app: ${{ steps.config.outputs.sonar_app }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: config
+        run: |
+          echo "sonar_project=$(yq -r '.sonar.project' config.yaml)" >> "$GITHUB_OUTPUT"
+          echo "sonar_app=$(yq -r '.sonar.app' config.yaml)" >> "$GITHUB_OUTPUT"
   build:
+    needs: load-config
     runs-on: arc-runner-set
     steps:
       - name: Checkout repository
@@ -51,13 +66,27 @@ jobs:
           echo "Image: ghcr.io/${{ github.repository }}"
           echo "Image Tag: ${{ steps.tag.outputs.tag }}"
       
-      - name: Sonar
+
+  sonar:
+    runs-on:
+      arc-runner-set
+    needs: [ build, load-config ]
+    steps:
+      - name: Install yq
         run: |
-          echo $SONAR_PASSWORD
-          echo $SONAR_USERNAME  
+          sudo apt update
+          sudo apt install -y yq
+
+      - name: Set Project 
+        run: |
+          curl -fsS -X POST "http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000/sonarqube/api/projects/create" \
+            -u "$SONAR_USERNAME:$SONAR_PASSWORD" \
+            --data-urlencode "project=${{ needs.load-config.outputs.sonar_project }}" \
+            --data-urlencode "name=${{ needs.load-config.outputs.sonar_app }}"
+          
   create-pr:
     runs-on: arc-runner-set
-    needs: build
+    needs: sonar
     steps:
       - name: Install GitHub CLI
         run: |
@@ -74,8 +103,8 @@ jobs:
           BASE_BRANCH: main
         run: |
           if gh pr list \
-            --head "feat/init" \
-            --base "main" \
+            --head "$HEAD_BRANCH" \
+            --base "$BASE_BRANCH" \
             --state "open" \
             --json number \
             --jq 'length > 0' | grep -q true; then
@@ -88,3 +117,4 @@ jobs:
               --title "Merge $HEAD_BRANCH into $BASE_BRANCH" \
               --body "PR created automatically by GitHub Actions."
           fi
+

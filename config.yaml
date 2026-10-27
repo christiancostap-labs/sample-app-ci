@@ -2,3 +2,6 @@ gitops:
   repository: christiancostap-labs/sample-app-gitops
   target_branch: main
 
+sonar:
+  project: testando
+  app: sample-app
