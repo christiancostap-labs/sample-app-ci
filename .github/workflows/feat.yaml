@@ -1,0 +1,90 @@
+name: Feature
+
+on:
+  push:
+    branches:
+      - feat/**
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: arc-runner-set
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+
+      - name: Unit tests
+        working-directory: app
+        run: go test ./... -v -coverprofile=coverage.out
+
+      - name: Generate image tag
+        id: tag
+        run: |
+          echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image
+        working-directory: app
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}:${{ steps.tag.outputs.tag }}"
+          echo "Building image: $IMAGE"
+          docker build -t "$IMAGE" .
+
+      - name: Push Docker image
+        run: |
+          IMAGE="ghcr.io/${{ github.repository }}:${{ steps.tag.outputs.tag }}"
+          echo "Pushing image: $IMAGE"
+          docker push "$IMAGE"
+          echo "Image: ghcr.io/${{ github.repository }}"
+          echo "Image Tag: ${{ steps.tag.outputs.tag }}"
+      
+      - name: Sonar
+        run: |
+          echo $SONAR_PASSWORD
+          echo $SONAR_USERNAME  
+  create-pr:
+    runs-on: arc-runner-set
+    needs: build
+    steps:
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Create Pull Request to Main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.ref_name }}
+          BASE_BRANCH: main
+        run: |
+          if gh pr list \
+            --head "feat/init" \
+            --base "main" \
+            --state "open" \
+            --json number \
+            --jq 'length > 0' | grep -q true; then
+            echo "Pull request already exists. Skipping creation."
+          else
+            echo "Creating pull request..."
+            gh pr create \
+              --head "$HEAD_BRANCH" \
+              --base "$BASE_BRANCH" \
+              --title "Merge $HEAD_BRANCH into $BASE_BRANCH" \
+              --body "PR created automatically by GitHub Actions."
+          fi

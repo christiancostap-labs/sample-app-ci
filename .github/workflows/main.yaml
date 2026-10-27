@@ -1,0 +1,50 @@
+name: GitOps Sync
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+jobs:
+  gitops-sync:
+    runs-on: arc-runner-set
+    steps:
+      - name: Install yq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yq
+          
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Get Configuration
+        id: config
+        run: |
+          echo "gitops_repository=$(yq e '.gitops.repository' sample-app/config.yaml)" >> "$GITHUB_OUTPUT"
+          echo "target_branch=$(yq e '.gitops.target_branch' sample-app/config.yaml)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Checkout GitOps Repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ steps.config.outputs.gitops_repository }}
+          ref: ${{ steps.config.outputs.target_branch }}
+          fetch-depth: 0
+
+      - name: Sync Changes
+        run: |
+          git pull origin ${{ steps.config.outputs.target_branch }}
+          git checkout -b feat/auto-sync-${{ steps.config.outputs.target_branch }}-${{ github.sha }}
+          sed -i "s|repository:.*|repository: ghcr.io/${{ github.repository }}|g" charts/values.yaml
+          sed -i "s|tag:.*|tag: ${{ github.sha }}|g" charts/values.yaml
+          git add .
+          git commit -m "Auto-sync: Update image repository and tag"
+          git push origin feat/auto-sync-${{ steps.config.outputs.target_branch }}-${{ github.sha }}

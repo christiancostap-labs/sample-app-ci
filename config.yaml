@@ -1,0 +1,4 @@
+gitops:
+  repository: christiancostap-labs/sample-app-gitops
+  target_branch: main
+
