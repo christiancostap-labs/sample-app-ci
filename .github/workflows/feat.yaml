@@ -70,7 +70,7 @@ jobs:
   sonar:
     runs-on:
       arc-runner-set
-    needs: [ build, sonar_project ]
+    needs: [ build, load-config ]
     steps:
       - name: Install yq
         run: |
