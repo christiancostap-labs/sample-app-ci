@@ -11,7 +11,20 @@ permissions:
 
 
 jobs:
+
+  load-config:
+    runs-on: ubuntu-latest
+    outputs:
+      sonar_project: ${{ steps.config.outputs.sonar_project }}
+      sonar_app: ${{ steps.config.outputs.sonar_app }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: config
+        run: |
+          echo "sonar_project=$(yq -r '.sonar.project' config.yaml)" >> "$GITHUB_OUTPUT"
+          echo "sonar_app=$(yq -r '.sonar.app' config.yaml)" >> "$GITHUB_OUTPUT"
   build:
+    needs: load-config
     runs-on: arc-runner-set
     steps:
       - name: Checkout repository
@@ -53,14 +66,24 @@ jobs:
           echo "Image: ghcr.io/${{ github.repository }}"
           echo "Image Tag: ${{ steps.tag.outputs.tag }}"
       
-      - name: Sonar
+
+  sonar:
+    runs-on:
+      arc-runner-set
+    needs: [ build, sonar_project ]
+    steps:
+      - name: Install yq
         run: |
-          echo $SONAR_PASSWORD
-          echo $SONAR_USERNAME  
-          echo $GITHUB_TOKEN
+          sudo apt update
+          sudo apt install -y yq
+
+      - name: Load 
+        run: |
+          echo "Sonar Project: ${{ needs.load-config.outputs.sonar_project }}"
+
   create-pr:
     runs-on: arc-runner-set
-    needs: build
+    needs: sonar
     steps:
       - name: Install GitHub CLI
         run: |
