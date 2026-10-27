@@ -77,10 +77,13 @@ jobs:
           sudo apt update
           sudo apt install -y yq
 
-      - name: Load 
+      - name: Set Project 
         run: |
-          echo "Sonar Project: ${{ needs.load-config.outputs.sonar_project }}"
-
+          curl -fsS -X POST "http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000/sonarqube/api/projects/create" \
+            -u "$SONAR_USERNAME:$SONAR_PASSWORD" \
+            --data-urlencode "project=${{ needs.load-config.outputs.sonar_project }}" \
+            --data-urlencode "name=${{ needs.load-config.outputs.sonar_app }}"
+          
   create-pr:
     runs-on: arc-runner-set
     needs: sonar
