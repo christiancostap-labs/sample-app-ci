@@ -100,8 +100,8 @@ jobs:
           BASE_BRANCH: main
         run: |
           if gh pr list \
-            --head "feat/init" \
-            --base "main" \
+            --head "$HEAD_BRANCH" \
+            --base "$BASE_BRANCH" \
             --state "open" \
             --json number \
             --jq 'length > 0' | grep -q true; then
