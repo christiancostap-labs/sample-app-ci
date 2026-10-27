@@ -55,6 +55,7 @@ jobs:
         run: |
           echo $SONAR_PASSWORD
           echo $SONAR_USERNAME  
+          echo $GITHUB_TOKEN
   create-pr:
     runs-on: arc-runner-set
     needs: build
