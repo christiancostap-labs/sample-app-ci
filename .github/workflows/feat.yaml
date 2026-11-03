@@ -7,13 +7,34 @@ on:
 permissions:
   contents: read
   packages: write
+  pull-requests: write
 
 jobs:
+  load-config:
+    runs-on: ubuntu-latest
+    outputs:
+      sonar_project: ${{ steps.config.outputs.sonar_project }}
+      sonar_app: ${{ steps.config.outputs.sonar_app }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Config.yaml
+        id: config
+        run: |
+          echo "sonar_project=$(yq -r '.sonar.project' config.yaml)" >> "$GITHUB_OUTPUT"
+          echo "sonar_app=$(yq -r '.sonar.app' config.yaml)" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: load-config
     runs-on: arc-runner-set
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -22,8 +43,9 @@ jobs:
 
       - name: Unit tests
         working-directory: app
-        run: go test ./... -v -coverprofile=coverage.out
-
+        run: |
+          go test ./... -v -coverprofile=coverage.out
+          ls
       - name: Generate image tag
         id: tag
         run: |
@@ -50,14 +72,87 @@ jobs:
           docker push "$IMAGE"
           echo "Image: ghcr.io/${{ github.repository }}"
           echo "Image Tag: ${{ steps.tag.outputs.tag }}"
-      
-      - name: Sonar
+
+      - name: Save Coverage Test to Artifactory
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: app/coverage.out
+
+  sonar:
+    runs-on:
+      arc-runner-set
+    needs: [ build, load-config ]
+
+    env:
+      SONAR_PROJECT: ${{ needs.load-config.outputs.sonar_project }}
+      SONAR_APP: ${{ needs.load-config.outputs.sonar_app }}
+
+    steps:
+      - name: Mask credentials
         run: |
-          echo $SONAR_PASSWORD
-          echo $SONAR_USERNAME  
+          echo "::add-mask::$SONAR_USERNAME"
+          echo "::add-mask::$SONAR_PASSWORD"
+      
+      - name: Install Execution Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg dirmngr jq yq
+          
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      
+      - name: Download coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: go-coverage
+          path: .
+
+
+      - name: Set Project 
+        run: |
+          curl -sS -X POST "http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000/sonarqube/api/projects/create" \
+            -u "$SONAR_USERNAME:$SONAR_PASSWORD" \
+            --data-urlencode "project=$SONAR_PROJECT" \
+            --data-urlencode "name=$SONAR_APP"
+
+      - name: Generate GHA Token 
+        run: |
+          SONAR_TOKEN=$(curl -fsS -X POST "http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000/sonarqube/api/user_tokens/generate" \
+            -u "$SONAR_USERNAME:$SONAR_PASSWORD" \
+            --data-urlencode "projectKey=$SONAR_PROJECT" \
+            --data-urlencode "type=PROJECT_ANALYSIS_TOKEN" \
+            --data-urlencode "name= gha tmp token" | jq -r '.token' )
+          echo "::add-mask::$SONAR_TOKEN"
+          echo "SONAR_TOKEN=$SONAR_TOKEN" >> "$GITHUB_ENV"
+
+      - uses: SonarSource/sonarqube-scan-action@v8.4.0
+        env:
+          SONAR_HOST_URL: "http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000/sonarqube/"
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT }}
+            -Dsonar.projectName=${{ env.SONAR_APP }}
+            -Dsonar.sources=.
+            -Dsonar.tests=.
+            -Dsonar.test.inclusions=**/*_test.go
+            -Dsonar.go.coverage.reportPaths=coverage.out
+            -Dsonar.sourceEncoding=UTF-8
+            -Dsonar.scm.provider=git
+
+      - name: Revoke GHA Token
+        if: always() && env.SONAR_TOKEN != ''
+        run: |
+          curl -fsS -X POST "http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000/sonarqube/api/user_tokens/revoke" \
+            -u "$SONAR_USERNAME:$SONAR_PASSWORD" \
+            --data-urlencode "name= gha tmp token"
+
   create-pr:
     runs-on: arc-runner-set
-    needs: build
+    needs: sonar
     steps:
       - name: Install GitHub CLI
         run: |
@@ -65,7 +160,9 @@ jobs:
           sudo apt-get install -y gh
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Create Pull Request to Main
         env:
@@ -74,8 +171,8 @@ jobs:
           BASE_BRANCH: main
         run: |
           if gh pr list \
-            --head "feat/init" \
-            --base "main" \
+            --head "$HEAD_BRANCH" \
+            --base "$BASE_BRANCH" \
             --state "open" \
             --json number \
             --jq 'length > 0' | grep -q true; then
