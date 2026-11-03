@@ -32,10 +32,10 @@ jobs:
           echo "gitops_repository=$(yq -r '.gitops.repository' config.yaml)"
           echo "gitops_targetBranch=$(yq -r '.gitops.targetBranch' config.yaml)"
 
-      - name: Configure Git
+      - name: Configure Git identity
         run: |
-          git config user.name "$GITHUB_ACTOR"
-          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Checkout GitOps Repository
         uses: actions/checkout@v7
