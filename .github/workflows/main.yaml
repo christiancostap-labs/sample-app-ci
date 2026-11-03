@@ -17,15 +17,17 @@ jobs:
           sudo apt-get install -y yq
           
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Get Configuration
         id: config
         run: |
-          echo "gitops_repository=$(yq e '.gitops.repository' sample-app/config.yaml)" >> "$GITHUB_OUTPUT"
-          echo "gitops_targetBranch=$(yq e '.gitops.targetBranch' sample-app/config.yaml)" >> "$GITHUB_OUTPUT"
+          echo "gitops_repository=$(yq e '.gitops.repository' config.yaml)" >> "$GITHUB_ENV"
+          echo "gitops_targetBranch=$(yq e '.gitops.targetBranch' config.yaml)" >> "$GITHUB_ENV"
+          echo "gitops_repository=$(yq e '.gitops.repository' config.yaml)"
+          echo "gitops_targetBranch=$(yq e '.gitops.targetBranch' config.yaml)"
 
       - name: Configure Git
         run: |
@@ -33,18 +35,18 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
       - name: Checkout GitOps Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
-          repository: ${{ steps.config.outputs.gitops_repository }}
-          ref: ${{ steps.config.outputs.gitops_targetBranch }}
+          repository: ${{ env.gitops_repository }}
+          ref: ${{ env.gitops_targetBranch }}
           fetch-depth: 0
 
       - name: Sync Changes
         run: |
-          git pull origin ${{ steps.config.outputs.gitops_targetBranch }}
-          git checkout -b feat/auto-sync-${{ steps.config.outputs.gitops_targetBranch }}-${{ github.sha }}
+          git pull origin ${{ env.gitops_targetBranch }}
+          git checkout -b feat/auto-sync-${{ env.gitops_targetBranch }}-${{ github.sha }}
           sed -i "s|repository:.*|repository: ghcr.io/${{ github.repository }}|g" charts/values.yaml
           sed -i "s|tag:.*|tag: ${{ github.sha }}|g" charts/values.yaml
           git add .
           git commit -m "Auto-sync: Update image repository and tag"
-          git push origin feat/auto-sync-${{ steps.config.outputs.gitops_targetBranch }}-${{ github.sha }}
+          git push origin feat/auto-sync-${{ env.gitops_targetBranch }}-${{ github.sha }}

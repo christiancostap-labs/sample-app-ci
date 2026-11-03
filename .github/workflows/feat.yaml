@@ -11,11 +11,15 @@ permissions:
 
 jobs:
   load-config:
-    runs-on: ubuntu-latest
+    runs-on: arc-runner-set
     outputs:
       sonar_project: ${{ steps.config.outputs.sonar_project }}
       sonar_app: ${{ steps.config.outputs.sonar_app }}
     steps:
+      - name: Install Execution Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yq
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
