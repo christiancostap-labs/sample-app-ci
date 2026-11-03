@@ -39,14 +39,17 @@ jobs:
         with:
           repository: ${{ env.gitops_repository }}
           ref: ${{ env.gitops_targetBranch }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITOPS_TOKEN }}
           fetch-depth: 0
 
       - name: Configure Git identity
+        env:
+          ACTOR: ${{ github.actor }}
+          ACTOR_ID: ${{ github.actor_id }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
+          git config user.name "$ACTOR"
+          git config user.email "${ACTOR_ID}+${ACTOR}@users.noreply.github.com"
+          
       - name: Sync Changes
         run: |
           git pull origin ${{ env.gitops_targetBranch }}
