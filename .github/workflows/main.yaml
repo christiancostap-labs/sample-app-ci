@@ -25,7 +25,7 @@ jobs:
         id: config
         run: |
           echo "gitops_repository=$(yq e '.gitops.repository' sample-app/config.yaml)" >> "$GITHUB_OUTPUT"
-          echo "gitops_target_branch=$(yq e '.gitops.target_branch' sample-app/config.yaml)" >> "$GITHUB_OUTPUT"
+          echo "gitops_targetBranch=$(yq e '.gitops.targetBranch' sample-app/config.yaml)" >> "$GITHUB_OUTPUT"
 
       - name: Configure Git
         run: |
@@ -36,15 +36,15 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: ${{ steps.config.outputs.gitops_repository }}
-          ref: ${{ steps.config.outputs.target_branch }}
+          ref: ${{ steps.config.outputs.gitops_targetBranch }}
           fetch-depth: 0
 
       - name: Sync Changes
         run: |
-          git pull origin ${{ steps.config.outputs.target_branch }}
-          git checkout -b feat/auto-sync-${{ steps.config.outputs.target_branch }}-${{ github.sha }}
+          git pull origin ${{ steps.config.outputs.gitops_targetBranch }}
+          git checkout -b feat/auto-sync-${{ steps.config.outputs.gitops_targetBranch }}-${{ github.sha }}
           sed -i "s|repository:.*|repository: ghcr.io/${{ github.repository }}|g" charts/values.yaml
           sed -i "s|tag:.*|tag: ${{ github.sha }}|g" charts/values.yaml
           git add .
           git commit -m "Auto-sync: Update image repository and tag"
-          git push origin feat/auto-sync-${{ steps.config.outputs.target_branch }}-${{ github.sha }}
+          git push origin feat/auto-sync-${{ steps.config.outputs.gitops_targetBranch }}-${{ github.sha }}
