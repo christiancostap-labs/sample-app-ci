@@ -93,6 +93,11 @@ jobs:
         run: |
           echo "::add-mask::$SONAR_USERNAME"
           echo "::add-mask::$SONAR_PASSWORD"
+      
+      - name: Install GPG dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg dirmngr
           
       - name: Checkout repository
         uses: actions/checkout@v7
