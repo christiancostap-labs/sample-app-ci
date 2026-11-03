@@ -24,10 +24,10 @@ jobs:
       - name: Get Configuration
         id: config
         run: |
-          echo "gitops_repository=$(yq e '.gitops.repository' config.yaml)" >> "$GITHUB_ENV"
-          echo "gitops_targetBranch=$(yq e '.gitops.targetBranch' config.yaml)" >> "$GITHUB_ENV"
-          echo "gitops_repository=$(yq e '.gitops.repository' config.yaml)"
-          echo "gitops_targetBranch=$(yq e '.gitops.targetBranch' config.yaml)"
+          echo "gitops_repository=$(yq -r '.gitops.repository' config.yaml)" >> "$GITHUB_ENV"
+          echo "gitops_targetBranch=$(yq -r '.gitops.targetBranch' config.yaml)" >> "$GITHUB_ENV"
+          echo "gitops_repository=$(yq -r '.gitops.repository' config.yaml)"
+          echo "gitops_targetBranch=$(yq -r '.gitops.targetBranch' config.yaml)"
 
       - name: Configure Git
         run: |
