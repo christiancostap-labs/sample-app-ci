@@ -25,7 +25,7 @@ jobs:
         id: config
         run: |
           echo "gitops_repository=$(yq e '.gitops.repository' sample-app/config.yaml)" >> "$GITHUB_OUTPUT"
-          echo "target_branch=$(yq e '.gitops.target_branch' sample-app/config.yaml)" >> "$GITHUB_OUTPUT"
+          echo "gitops_target_branch=$(yq e '.gitops.target_branch' sample-app/config.yaml)" >> "$GITHUB_OUTPUT"
 
       - name: Configure Git
         run: |
