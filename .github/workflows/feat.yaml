@@ -94,10 +94,10 @@ jobs:
           echo "::add-mask::$SONAR_USERNAME"
           echo "::add-mask::$SONAR_PASSWORD"
       
-      - name: Install GPG dependencies
+      - name: Install Execution Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y gnupg dirmngr
+          sudo apt-get install -y gnupg dirmngr jq yq
           
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -110,14 +110,10 @@ jobs:
           name: go-coverage
           path: .
 
-      - name: Install yq
-        run: |
-          sudo apt update
-          sudo apt install -y yq
 
       - name: Set Project 
         run: |
-          curl -sS -X POST "http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000/sonarqube/api/projects/create" \
+          curl -fsS -X POST "http://sonarqube-sonarqube.sonarqube.svc.cluster.local:9000/sonarqube/api/projects/create" \
             -u "$SONAR_USERNAME:$SONAR_PASSWORD" \
             --data-urlencode "project=$SONAR_PROJECT" \
             --data-urlencode "name=$SONAR_APP"
@@ -128,7 +124,7 @@ jobs:
             -u "$SONAR_USERNAME:$SONAR_PASSWORD" \
             --data-urlencode "projectKey=$SONAR_PROJECT" \
             --data-urlencode "type=PROJECT_ANALYSIS_TOKEN" \
-            --data-urlencode "name= gha tmp token")
+            --data-urlencode "name= gha tmp token" | jq -r '.token' )
           echo "::add-mask::$SONAR_TOKEN"
           echo "SONAR_TOKEN=$SONAR_TOKEN" >> "$GITHUB_ENV"
 
