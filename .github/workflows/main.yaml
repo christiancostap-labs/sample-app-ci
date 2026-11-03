@@ -32,11 +32,14 @@ jobs:
           echo "gitops_repository=$(yq -r '.gitops.repository' config.yaml)"
           echo "gitops_targetBranch=$(yq -r '.gitops.targetBranch' config.yaml)"
 
+
+
       - name: Checkout GitOps Repository
         uses: actions/checkout@v7
         with:
           repository: ${{ env.gitops_repository }}
           ref: ${{ env.gitops_targetBranch }}
+          token: ${{ secrets.GITOPS_TOKEN }}
           fetch-depth: 0
 
       - name: Configure Git identity
