@@ -38,7 +38,7 @@ jobs:
         with:
           repository: ${{ env.gitops_repository }}
           ref: ${{ env.gitops_targetBranch }}
-          token: ${{ env.GITHUB_TOKEN }}
+          token: ${{ env.gitops_github_token }}
           fetch-depth: 0
 
       - name: Configure Git identity
