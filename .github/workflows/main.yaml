@@ -27,6 +27,8 @@ jobs:
       - name: Get Configuration
         id: config
         run: |
+          echo "ghcr_tag=${{ github.event.pull_request.head.sha.substring(0, 12) }}" >> "$GITHUB_ENV"
+          echo $ghcr_tag
           echo "gitops_repository=$(yq -r '.gitops.repository' config.yaml)" >> "$GITHUB_ENV"
           echo "gitops_targetBranch=$(yq -r '.gitops.targetBranch' config.yaml)" >> "$GITHUB_ENV"
           echo "gitops_github_token=$GITHUB_TOKEN" >> $GITHUB_ENV
@@ -52,9 +54,9 @@ jobs:
       - name: Sync Changes
         run: |
           git pull origin ${{ env.gitops_targetBranch }}
-          git checkout -b feat/auto-sync-${{ env.gitops_targetBranch }}-${{ github.event.pull_request.head.sha }}
+          git checkout -b feat/auto-sync-${{ env.gitops_targetBranch }}-${{ env.ghcr_tag }}
           sed -i "s|repository:.*|repository: ghcr.io/${{ github.repository }}|g" charts/values.yaml
-          sed -i "s|tag:.*|tag: ${{ github.event.pull_request.head.sha }}|g" charts/values.yaml
+          sed -i "s|tag:.*|tag: ${{ env.ghcr_tag }}|g" charts/values.yaml
           git add .
           git commit -m "Auto-sync: Update image repository and tag"
-          git push origin feat/auto-sync-${{ env.gitops_targetBranch }}-${{ github.event.pull_request.head.sha }}
+          git push origin feat/auto-sync-${{ env.gitops_targetBranch }}-${{ env.ghcr_tag }}
