@@ -52,9 +52,9 @@ jobs:
       - name: Sync Changes
         run: |
           git pull origin ${{ env.gitops_targetBranch }}
-          git checkout -b feat/auto-sync-${{ env.gitops_targetBranch }}-${{ github.sha }}
+          git checkout -b feat/auto-sync-${{ env.gitops_targetBranch }}-${{ github.event.pull_request.head.sha }}
           sed -i "s|repository:.*|repository: ghcr.io/${{ github.repository }}|g" charts/values.yaml
-          sed -i "s|tag:.*|tag: ${{ github.sha }}|g" charts/values.yaml
+          sed -i "s|tag:.*|tag: ${{ github.event.pull_request.head.sha }}|g" charts/values.yaml
           git add .
           git commit -m "Auto-sync: Update image repository and tag"
-          git push origin feat/auto-sync-${{ env.gitops_targetBranch }}-${{ github.sha }}
+          git push origin feat/auto-sync-${{ env.gitops_targetBranch }}-${{ github.event.pull_request.head.sha }}
