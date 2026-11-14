@@ -27,7 +27,8 @@ jobs:
       - name: Get Configuration
         id: config
         run: |
-          echo "ghcr_tag=${{ github.event.pull_request.head.sha.substring(0, 12) }}" >> "$GITHUB_ENV"
+          commit_tag=${{ github.event.pull_request.head.sha.substring(0, 12) }}
+          echo "ghcr_tag=${commit_tag::12}" >> "$GITHUB_ENV"
           echo $ghcr_tag
           echo "gitops_repository=$(yq -r '.gitops.repository' config.yaml)" >> "$GITHUB_ENV"
           echo "gitops_targetBranch=$(yq -r '.gitops.targetBranch' config.yaml)" >> "$GITHUB_ENV"
